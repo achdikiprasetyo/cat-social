@@ -9,13 +9,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
-	"github.com/lib/pq" 
 	"golang.org/x/crypto/bcrypt"
-	"github.com/dgrijalva/jwt-go"
 )
 
 // DB represents the database connection
@@ -88,40 +88,38 @@ type CatController struct {
 // CreateCat creates a new cat in the database
 // CreateCat creates a new cat in the database
 func (cc *CatController) CreateCat(c *gin.Context) {
-    // Check bearer token
-    if err := CheckBearerToken(c); err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-        return
-    }
+	// Check bearer token
+	if err := CheckBearerToken(c); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-    // Bind request body to Cat struct
-    var cat struct {
-        Name        string   `json:"name" binding:"required,min=1,max=30"`
-        Race        string   `json:"race" binding:"required,oneof=Persian MaineCoon Siamese Ragdoll Bengal Sphynx BritishShorthair Abyssinian ScottishFold Birman"`
-        Sex         string   `json:"sex" binding:"required,oneof=male female"`
-        AgeInMonth  int      `json:"ageInMonth" binding:"required,min=1,max=120082"`
-        Description string   `json:"description" binding:"required,min=1,max=200"`
-        ImageURLs   []string `json:"imageUrls" binding:"required,min=1,dive,url"`
-    }
+	// Bind request body to Cat struct
+	var cat struct {
+		Name        string   `json:"name" binding:"required,min=1,max=30"`
+		Race        string   `json:"race" binding:"required,oneof=Persian MaineCoon Siamese Ragdoll Bengal Sphynx BritishShorthair Abyssinian ScottishFold Birman"`
+		Sex         string   `json:"sex" binding:"required,oneof=male female"`
+		AgeInMonth  int      `json:"ageInMonth" binding:"required,min=1,max=120082"`
+		Description string   `json:"description" binding:"required,min=1,max=200"`
+		ImageURLs   []string `json:"imageUrls" binding:"required,min=1,dive,url"`
+	}
 
-    if err := c.ShouldBindJSON(&cat); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err := c.ShouldBindJSON(&cat); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    // Insert cat data into database
-    _, err := cc.DB.Exec("INSERT INTO cats (name, race, sex, age_in_month, description, image_urls) VALUES ($1, $2, $3, $4, $5, $6)",
-        cat.Name, cat.Race, cat.Sex, cat.AgeInMonth, cat.Description, pq.Array(cat.ImageURLs))
-    if err != nil {
-        log.Println("Error adding cat:", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add cat"})
-        return
-    }
+	// Insert cat data into database
+	_, err := cc.DB.Exec("INSERT INTO cats (name, race, sex, age_in_month, description, image_urls) VALUES ($1, $2, $3, $4, $5, $6)",
+		cat.Name, cat.Race, cat.Sex, cat.AgeInMonth, cat.Description, pq.Array(cat.ImageURLs))
+	if err != nil {
+		log.Println("Error adding cat:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add cat"})
+		return
+	}
 
-    c.JSON(http.StatusCreated, gin.H{"message": "Cat added successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Cat added successfully"})
 }
-
-
 
 // UpdateCat updates an existing cat in the database
 func (cc *CatController) UpdateCat(c *gin.Context) {
@@ -190,61 +188,61 @@ func (cc *CatController) DeleteCat(c *gin.Context) {
 
 // GetCats retrieves all cats from the database
 func (cc *CatController) GetCats(c *gin.Context) {
-    // Check bearer token
-    if err := CheckBearerToken(c); err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-        return
-    }
+	// Check bearer token
+	if err := CheckBearerToken(c); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 
-    // Retrieve cats from the database
-    rows, err := cc.DB.Query("SELECT id, name, race, sex, age_in_month, description, image_urls FROM cats")
-    if err != nil {
-        log.Println("Error retrieving cats:", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
-        return
-    }
-    defer rows.Close()
+	// Retrieve cats from the database
+	rows, err := cc.DB.Query("SELECT id, name, race, sex, age_in_month, description, image_urls FROM cats")
+	if err != nil {
+		log.Println("Error retrieving cats:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
+		return
+	}
+	defer rows.Close()
 
-    // Create slice to hold retrieved cats
-    var cats []gin.H
+	// Create slice to hold retrieved cats
+	var cats []gin.H
 
-    // Iterate over rows and append to cats slice
-    for rows.Next() {
-        var cat struct {
-            ID          int      `json:"id"`
-            Name        string   `json:"name"`
-            Race        string   `json:"race"`
-            Sex         string   `json:"sex"`
-            AgeInMonth  int      `json:"ageInMonth"`
-            Description string   `json:"description"`
-            ImageURLs   []string `json:"imageUrls"`
-        }
+	// Iterate over rows and append to cats slice
+	for rows.Next() {
+		var cat struct {
+			ID          int      `json:"id"`
+			Name        string   `json:"name"`
+			Race        string   `json:"race"`
+			Sex         string   `json:"sex"`
+			AgeInMonth  int      `json:"ageInMonth"`
+			Description string   `json:"description"`
+			ImageURLs   []string `json:"imageUrls"`
+		}
 
-        if err := rows.Scan(&cat.ID, &cat.Name, &cat.Race, &cat.Sex, &cat.AgeInMonth, &cat.Description, pq.Array(&cat.ImageURLs)); err != nil {
-            log.Println("Error scanning row:", err)
-            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
-            return
-        }
+		if err := rows.Scan(&cat.ID, &cat.Name, &cat.Race, &cat.Sex, &cat.AgeInMonth, &cat.Description, pq.Array(&cat.ImageURLs)); err != nil {
+			log.Println("Error scanning row:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
+			return
+		}
 
-        cats = append(cats, gin.H{
-            "id":          cat.ID,
-            "name":        cat.Name,
-            "race":        cat.Race,
-            "sex":         cat.Sex,
-            "ageInMonth":  cat.AgeInMonth,
-            "description": cat.Description,
-            "imageUrls":   cat.ImageURLs,
-        })
-    }
+		cats = append(cats, gin.H{
+			"id":          cat.ID,
+			"name":        cat.Name,
+			"race":        cat.Race,
+			"sex":         cat.Sex,
+			"ageInMonth":  cat.AgeInMonth,
+			"description": cat.Description,
+			"imageUrls":   cat.ImageURLs,
+		})
+	}
 
-    // Check for errors during rows iteration
-    if err := rows.Err(); err != nil {
-        log.Println("Error iterating over rows:", err)
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
-        return
-    }
+	// Check for errors during rows iteration
+	if err := rows.Err(); err != nil {
+		log.Println("Error iterating over rows:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"cats": cats})
+	c.JSON(http.StatusOK, gin.H{"cats": cats})
 }
 
 // CheckBearerToken checks the bearer token
