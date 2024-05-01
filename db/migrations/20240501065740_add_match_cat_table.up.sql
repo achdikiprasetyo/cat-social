@@ -1,0 +1,11 @@
+CREATE TABLE match_cats (
+    id INTEGER PRIMARY KEY,
+    issuedId INTEGER REFERENCES users(id) NOT NULL,
+    issuedCatId INTEGER REFERENCES cats(id) NOT NULL,
+    receiverId INTEGER REFERENCES users(id) NOT NULL,
+    receiverCatId INTEGER REFERENCES cats(id) NOT NULL,
+    message VARCHAR(255) NULL,
+    status BOOLEAN NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
