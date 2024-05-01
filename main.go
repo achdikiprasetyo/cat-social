@@ -88,8 +88,9 @@ type CatController struct {
 // CreateCat creates a new cat in the database
 // CreateCat creates a new cat in the database
 func (cc *CatController) CreateCat(c *gin.Context) {
-    // Check bearer token
-    if err := CheckBearerToken(c); err != nil {
+    // Mendapatkan user ID dari token JWT
+    userID, err := GetUserIDFromToken(c)
+    if err != nil {
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
         return
     }
@@ -109,9 +110,8 @@ func (cc *CatController) CreateCat(c *gin.Context) {
         return
     }
 
-    // Insert cat data into database
-    _, err := cc.DB.Exec("INSERT INTO cats (name, race, sex, age_in_month, description, image_urls) VALUES ($1, $2, $3, $4, $5, $6)",
-        cat.Name, cat.Race, cat.Sex, cat.AgeInMonth, cat.Description, pq.Array(cat.ImageURLs))
+    _, err = cc.DB.Exec("INSERT INTO cats (name, race, sex, age_in_month, description, image_urls, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        cat.Name, cat.Race, cat.Sex, cat.AgeInMonth, cat.Description, pq.Array(cat.ImageURLs), userID)
     if err != nil {
         log.Println("Error adding cat:", err)
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add cat"})
@@ -121,6 +121,37 @@ func (cc *CatController) CreateCat(c *gin.Context) {
     c.JSON(http.StatusCreated, gin.H{"message": "Cat added successfully"})
 }
 
+
+func GetUserIDFromToken(c *gin.Context) (int, error) {
+    token := c.GetHeader("Authorization")
+    if token == "" {
+        return 0, fmt.Errorf("missing bearer token")
+    }
+
+    // Parse the token
+    claims := jwt.MapClaims{}
+    _, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+        return []byte("9#JKl!M8Pn$1Sd@5"), nil // Change this to your secret key
+    })
+    if err != nil {
+        return 0, fmt.Errorf("invalid bearer token")
+    }
+
+    // Extract the user ID from claims
+    userIDFloat, ok := claims["user_id"].(float64)
+if !ok {
+    return 0, fmt.Errorf("invalid user ID in token")
+}
+
+// Konversi float64 ke int
+userID := int(userIDFloat)
+
+    if !ok {
+        return 0, fmt.Errorf("invalid user ID in token")
+    }
+
+    return userID, nil
+}	
 
 
 // UpdateCat updates an existing cat in the database
@@ -272,94 +303,107 @@ func NewUserController(db *sql.DB) *UserController {
 
 // Register registers a new user
 func (uc *UserController) Register(c *gin.Context) {
-	var user struct {
-		Email    string `json:"email" binding:"required,email"`
-		Name     string `json:"name" binding:"required,min=5,max=50"`
-		Password string `json:"password" binding:"required,min=5,max=15"`
-	}
+    var user struct {
+        Email    string `json:"email" binding:"required,email"`
+        Name     string `json:"name" binding:"required,min=5,max=50"`
+        Password string `json:"password" binding:"required,min=5,max=15"`
+    }
 
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    if err := c.ShouldBindJSON(&user); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
-		return
-	}
+    // Hash password
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+        return
+    }
 
-	// Save user to database
-	_, err = uc.DB.Exec("INSERT INTO users (email, name, password) VALUES ($1, $2, $3)", user.Email, user.Name, string(hashedPassword))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
-		return
-	}
+    // Save user to database
+    _, err = uc.DB.Exec("INSERT INTO users (email, name, password) VALUES ($1, $2, $3)", user.Email, user.Name, string(hashedPassword))
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+        return
+    }
 
-	// Generate JWT token
-	token, err := GenerateJWT(user.Email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-		return
-	}
+    // Retrieve user ID from the database (assuming the ID is auto-incremented)
+    var userID int
+    err = uc.DB.QueryRow("SELECT id FROM users WHERE email = $1", user.Email).Scan(&userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve user ID"})
+        return
+    }
 
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "access_token": token})
+    // Generate JWT token with user ID
+    token, err := GenerateJWT(user.Email, userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
+
+    c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully", "access_token": token})
 }
 
 // Login logs in a user
 func (uc *UserController) Login(c *gin.Context) {
-	var loginReq struct {
-		Email    string `json:"email" binding:"required,email"`
-		Password string `json:"password" binding:"required,min=5,max=15"`
-	}
+    var loginReq struct {
+        Email    string `json:"email" binding:"required,email"`
+        Password string `json:"password" binding:"required,min=5,max=15"`
+    }
 
-	if err := c.ShouldBindJSON(&loginReq); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    if err := c.ShouldBindJSON(&loginReq); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	// Fetch user from database
-	var storedPassword string
-	err := uc.DB.QueryRow("SELECT password FROM users WHERE email = $1", loginReq.Email).Scan(&storedPassword)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
+    // Fetch user from database
+    var storedPassword string
+    var userID int // Define variable to store user ID
+    err := uc.DB.QueryRow("SELECT id, password FROM users WHERE email = $1", loginReq.Email).Scan(&userID, &storedPassword)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
 
-	// Compare passwords
-	if err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(loginReq.Password)); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid password"})
-		return
-	}
+    // Compare passwords
+    if err := bcrypt.CompareHashAndPassword([]byte(storedPassword), []byte(loginReq.Password)); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid password"})
+        return
+    }
 
-	// Generate JWT token
-	token, err := GenerateJWT(loginReq.Email)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
-		return
-	}
+    // Generate JWT token with user ID
+    token, err := GenerateJWT(loginReq.Email, userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+        return
+    }
 
-	c.JSON(http.StatusOK, gin.H{"message": "User logged successfully", "access_token": token})
+    c.JSON(http.StatusOK, gin.H{"message": "User logged successfully", "access_token": token})
 }
 
 // GenerateJWT generates a JWT token for the given email
-func GenerateJWT(email string) (string, error) {
-	// Create the Claims
-	claims := jwt.MapClaims{
-		"email": email,
-		"exp":   time.Now().Add(time.Hour * 8).Unix(), // Token expiration time, adjust as needed
-	}
+// GenerateJWT generates a JWT token for the given email and user ID
+func GenerateJWT(email string, userID int) (string, error) {
+    // Create the Claims
+    claims := jwt.MapClaims{
+        "email":  email,
+        "user_id": userID, // Add user ID to the claims
+        "exp":    time.Now().Add(time.Hour * 8).Unix(), // Token expiration time, adjust as needed
+    }
 
-	// Create the token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+    // Create the token
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	// Sign the token with a secret key
-	secretKey := []byte("9#JKl!M8Pn$1Sd@5") // Change this to your secret key
-	tokenString, err := token.SignedString(secretKey)
-	if err != nil {
-		return "", err
-	}
+    // Sign the token with a secret key
+    secretKey := []byte("9#JKl!M8Pn$1Sd@5") // Change this to your secret key
+    tokenString, err := token.SignedString(secretKey)
+    if err != nil {
+        return "", err
+    }
 
-	return tokenString, nil
+    return tokenString, nil
 }
+
+
