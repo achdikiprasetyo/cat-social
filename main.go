@@ -1,4 +1,4 @@
-bukan itu buatkan kodenya seusi kontrak itu, dan tuliskan perubahannya ke kode saya package main
+package main
 
 import (
 	"database/sql"
