@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"os"
 	"time"
-
+	"strings"
+	
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
 	"github.com/lib/pq" 
 	"golang.org/x/crypto/bcrypt"
 	"github.com/dgrijalva/jwt-go"
@@ -130,6 +130,7 @@ func (cc *CatController) CreateCat(c *gin.Context) {
 
 func GetUserIDFromToken(c *gin.Context) (int, error) {
     token := c.GetHeader("Authorization")
+    fmt.Println("Token received:", token) // Tampilkan token yang diterima
     if token == "" {
         return 0, fmt.Errorf("missing bearer token")
     }
@@ -282,17 +283,33 @@ func (cc *CatController) GetCats(c *gin.Context) {
 }
 
 // CheckBearerToken checks the bearer token
+// CheckBearerToken checks the bearer token
 func CheckBearerToken(c *gin.Context) error {
-	token := c.GetHeader("Authorization")
-	if token == "" {
-		return fmt.Errorf("missing bearer token")
-	}
+    tokenString := c.GetHeader("Authorization")
+    if tokenString == "" {
+        return fmt.Errorf("missing bearer token")
+    }
 
-	// Perform token validation here
-	// You need to implement token validation logic according to your application requirements
+    // Split token string
+    parts := strings.Split(tokenString, " ")
+    if len(parts) != 2 || parts[0] != "Bearer" {
+        return fmt.Errorf("invalid bearer token format")
+    }
+    token := parts[1]
 
-	return nil
+    // Parse the token
+    claims := jwt.MapClaims{}
+    _, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
+        return []byte("9#JKl!M8Pn$1Sd@5"), nil // Change this to your secret key
+    })
+    if err != nil {
+        return fmt.Errorf("invalid bearer token")
+    }
+
+    // Token is valid
+    return nil
 }
+
 
 // UserController represents the user controller
 type UserController struct {
