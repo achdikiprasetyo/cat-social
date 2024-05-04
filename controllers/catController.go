@@ -54,7 +54,7 @@ func CreateCat(c *gin.Context) {
 		"message": "Success",
 		"data": gin.H{
 			"id":        catID,
-			"createdAt": createdAt.Format(time.DateTime),
+			"createdAt": createdAt.Format(time.RFC3339),
 		},
 	}
 
@@ -112,7 +112,7 @@ func GetCats(c *gin.Context) {
 			"imageUrls":   cat.ImageURLs,
 			"description": cat.Description,
 			"hasMatched":  cat.HasMatched,
-			"createdAt":   cat.CreatedAt.Format(time.DateTime),
+			"createdAt":   cat.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
@@ -130,7 +130,6 @@ func GetCats(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
-
 }
 
 func UpdateCat(c *gin.Context) {
@@ -171,13 +170,6 @@ func UpdateCat(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	// Mengonversi array []string menjadi string JSON
-	// imageURLsJSON, err := json.Marshal(cat.ImageURLs)
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to marshal image URLs"})
-	// 	return
-	// }
 
 	// Update cat data in the database
 	_, err = DB.Exec("UPDATE cats SET name=$1, race=$2, sex=$3, age_in_month=$4, description=$5, image_urls=$6 WHERE id=$7",
