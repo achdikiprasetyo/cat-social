@@ -19,12 +19,7 @@ func CreateCat(c *gin.Context) {
 		return
 	}
 
-	DB, err := configurations.DBConnection()
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
-	}
-
-	// Bind request body to Cat struct
+	// Validasi input
 	var cat struct {
 		Name        string   `json:"name" binding:"required,min=1,max=30"`
 		Race        string   `json:"race" binding:"required,oneof=Persian MaineCoon Siamese Ragdoll Bengal Sphynx BritishShorthair Abyssinian ScottishFold Birman"`
@@ -37,6 +32,17 @@ func CreateCat(c *gin.Context) {
 	if err := c.ShouldBindJSON(&cat); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Validasi usia kucing
+	if cat.AgeInMonth < 1 || cat.AgeInMonth > 120082 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ageInMonth, must be between 1 and 120082"})
+		return
+	}
+
+	DB, err := configurations.DBConnection()
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
 	}
 
 	var catID int
@@ -66,6 +72,7 @@ func GetCats(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
+
 	DB, err := configurations.DBConnection()
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
