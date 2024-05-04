@@ -48,7 +48,7 @@ func main() {
 	router.POST("/v1/cat/match/reject", controllers.RejectMatch)
 	router.DELETE("/v1/cat/match/:id", controllers.DeleteMatch)
 	// Jalankan server HTTP
-	router.Run(":32")
+	router.Run(":8080")
 }
 
 type CatController struct {
