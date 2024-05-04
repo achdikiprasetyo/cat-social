@@ -17,6 +17,10 @@ import (
 // DB represents the database connection
 var DB *sql.DB
 
+func NewCatController(db *sql.DB) *CatController {
+	return &CatController{DB: db}
+}
+
 func main() {
 	// Baca nilai variabel lingkungan untuk koneksi database
 
@@ -33,17 +37,16 @@ func main() {
 	router.POST("/v1/user/register", controllers.Register)
 	router.POST("/v1/user/login", controllers.Login)
 
-	catController := NewCatController(DB)
 	router.POST("/v1/cat", controllers.CreateCat)
 	router.GET("/v1/cat", controllers.GetCats)
 	router.PUT("/v1/cat/:id", controllers.UpdateCat)
 	router.DELETE("/v1/cat/:id", controllers.DeleteCat)
 
-	router.POST("/v1/cat/match", catController.CreateMatch)
-	router.GET("/v1/cat/match", catController.GetMatchRequests)
-	router.POST("/v1/cat/match/approve", catController.ApproveMatch)
-	router.POST("/v1/cat/match/reject", catController.RejectMatch)
-	router.DELETE("/v1/cat/match/:id", catController.DeleteMatch)
+	router.POST("/v1/cat/match", controllers.CreateMatch)
+	router.GET("/v1/cat/match", controllers.GetMatchRequests)
+	router.POST("/v1/cat/match/approve", controllers.ApproveMatch)
+	router.POST("/v1/cat/match/reject", controllers.RejectMatch)
+	router.DELETE("/v1/cat/match/:id", controllers.DeleteMatch)
 	// Jalankan server HTTP
 	router.Run(":32")
 }
@@ -111,6 +114,11 @@ func CheckBearerToken(c *gin.Context) error {
 
 	// Token is valid
 	return nil
+}
+
+// UserController represents the user controller
+type UserController struct {
+	DB *sql.DB
 }
 
 // GenerateJWT generates a JWT token for the given email

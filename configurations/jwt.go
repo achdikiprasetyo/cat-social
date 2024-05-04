@@ -2,11 +2,14 @@ package configurations
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+var JWTSecret string = os.Getenv("DB_HOST")
 
 func GetUserFromToken(c *gin.Context) (int, error) {
 	token := c.GetHeader("Authorization")
@@ -21,7 +24,7 @@ func GetUserFromToken(c *gin.Context) (int, error) {
 	// Parse the token
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte("9#JKl!M8Pn$1Sd@5"), nil // Change this to your secret key
+		return []byte(JWTSecret), nil // Change this to your secret key
 	})
 	if err != nil {
 		return 0, fmt.Errorf("invalid bearer token: %v", err)
@@ -53,7 +56,7 @@ func GenerateToken(email string, userID int) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
 	// Sign the token with a secret key
-	secretKey := []byte("9#JKl!M8Pn$1Sd@5") // Change this to your secret key
+	secretKey := []byte(JWTSecret) // Change this to your secret key
 	tokenString, err := token.SignedString(secretKey)
 	if err != nil {
 		return "", err
@@ -75,7 +78,7 @@ func CheckBearerToken(c *gin.Context) error {
 	// Parse the token
 	claims := jwt.MapClaims{}
 	_, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
-		return []byte("9#JKl!M8Pn$1Sd@5"), nil // Change this to your secret key
+		return []byte(JWTSecret), nil // Change this to your secret key
 	})
 	if err != nil {
 		return fmt.Errorf("invalid bearer token: %v", err)
