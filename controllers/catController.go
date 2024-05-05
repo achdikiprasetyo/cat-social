@@ -306,15 +306,27 @@ func UpdateCat(c *gin.Context) {
 		return
 	}
 
+	var exists bool
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM match_cats WHERE (issuedCatId=$1 OR receiverCatId=$1) AND deleted_at IS NULL)", catID).Scan(&exists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cat cannot be updated because it is involved in matches"})
+		return
+	}
+
 	// Bind request body to Cat struct
 	var cat struct {
 		Name        string   `json:"name" binding:"required,min=1,max=30"`
-		Race        string   `json:"race" binding:"required,oneof=Persian MaineCoon Siamese Ragdoll Bengal Sphynx BritishShorthair Abyssinian ScottishFold Birman"`
+		Race        string   `json:"race" binding:"required,oneof=Persian 'Maine Coon' Siamese Ragdoll Bengal Sphynx 'British Shorthair' Abyssinian 'Scottish Fold' Birman"`
 		Sex         string   `json:"sex" binding:"required,oneof=male female"`
 		AgeInMonth  int      `json:"ageInMonth" binding:"required,min=1,max=120082"`
 		Description string   `json:"description" binding:"required,min=1,max=200"`
 		ImageURLs   []string `json:"imageUrls" binding:"required,min=1,dive,url"`
 	}
+	fmt.Println(cat)
 
 	if err := c.ShouldBindJSON(&cat); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -346,6 +358,17 @@ func DeleteCat(c *gin.Context) {
 	}
 
 	catID := c.Param("id")
+
+	var exists bool
+	err = DB.QueryRow("SELECT EXISTS(SELECT 1 FROM match_cats WHERE (issuedCatId=$1 OR receiverCatId=$1) AND deleted_at IS NULL)", catID).Scan(&exists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if exists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cat cannot be deleted because it is involved in matches"})
+		return
+	}
 
 	var catUserID int
 	err = DB.QueryRow("SELECT user_id FROM cats WHERE id=$1", catID).Scan(&catUserID)

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,18 +37,18 @@ func CreateMatch(c *gin.Context) {
 		return
 	}
 
-	// Cek apakah cat yang dimaksud milik pengguna
-	var ownerID int
-	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.UserCatID).Scan(&ownerID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User cat not found"})
-		return
-	}
+	// // Cek apakah cat yang dimaksud milik pengguna
+	// var ownerID int
+	// err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.UserCatID).Scan(&ownerID)
+	// if err != nil {
+	// 	c.JSON(http.StatusNotFound, gin.H{"error": "User cat not found"})
+	// 	return
+	// }
 
-	if ownerID != userID {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User Cat not belongs to user"})
-		return
-	}
+	// if ownerID != userID {
+	// 	c.JSON(http.StatusNotFound, gin.H{"error": "User Cat not belongs to user"})
+	// 	return
+	// }
 
 	// Cek apakah gender kucing sama
 	var userCatSex string
@@ -83,20 +84,24 @@ func CreateMatch(c *gin.Context) {
 	// Cek apakah kedua kucing milik pemilik yang sama
 	var userCatOwnerID int
 	var matchCatOwnerID int
-	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1 AND deleted_at IS NULL", matchRequest.UserCatID).Scan(&userCatOwnerID)
+	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.UserCatID).Scan(&userCatOwnerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User cat not found"})
 		return
 	}
-	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1 AND deleted_at IS NULL", matchRequest.MatchCatID).Scan(&matchCatOwnerID)
+	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.MatchCatID).Scan(&matchCatOwnerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Match cat not found"})
 		return
 	}
-	if userCatOwnerID == matchCatOwnerID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Both cats belong to the same owner"})
-		return
-	}
+	// if userCatOwnerID == matchCatOwnerID {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Both cats belong to the same owner"})
+	// 	return
+	// }
+	// if userCatOwnerID != userID {
+	// 	c.JSON(http.StatusNotFound, gin.H{"error": "User Cat not belongs to user"})
+	// 	return
+	// }
 
 	// Tambahkan permintaan pencocokan kucing ke database
 	_, err = DB.Exec("INSERT INTO match_cats (issuedId, issuedCatId, receiverId, receiverCatId, message, status) VALUES ($1, $2, $3, $4, $5, false)",
@@ -114,6 +119,11 @@ func GetMatchRequests(c *gin.Context) {
 	// Mendapatkan user ID dari token JWT
 	userID, err := configurations.GetUserFromToken(c)
 	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	if userID == 0 {
+		// mc.issuedId = $1 OR mc.receiverId = $1 AND
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
@@ -141,7 +151,7 @@ func GetMatchRequests(c *gin.Context) {
 	}
 
 	// Retrieve match requests from the database
-	rows, err := DB.Query("SELECT mc.id, u1.name AS issuedName,  u1.email AS issuedEmail, u1.created_at AS issuedAt,  c1.id AS issuedCatId, c1.name AS issuedCatName, c1.race AS issuedCatRace, c1.sex AS issuedCatSex, c1.age_in_month AS issuedCatAgeInMonth, c1.description AS issuedCatDescription, c1.image_urls AS issuedCatImageUrls, c1.has_matched AS issuedCatStatus, c1.created_at AS issuedCatCreatedAt, c2.id AS receiverCatId, c2.name AS receiverCatName, c2.race AS receiverCatRace, c2.sex AS receiverCatSex, c2.age_in_month AS receiverCatAgeInMonth, c2.description AS receiverCatDescription, c2.image_urls AS receiverCatImageUrls, c2.has_matched AS receiverCatStatus, c2.created_at AS receiverCatCreatedAt, mc.message, mc.created_at FROM match_cats mc INNER JOIN users u1 ON mc.issuedId = u1.id INNER JOIN users u2 ON mc.receiverId = u2.id INNER JOIN cats c1 ON mc.issuedCatId = c1.id INNER JOIN cats c2 ON mc.receiverCatId = c2.id WHERE mc.issuedId = $1 OR mc.receiverId = $1 AND mc.deleted_at IS NULL ORDER BY mc.created_at DESC", userID)
+	rows, err := DB.Query("SELECT mc.id, u1.name AS issuedName,  u1.email AS issuedEmail, u1.created_at AS issuedAt,  c1.id AS issuedCatId, c1.name AS issuedCatName, c1.race AS issuedCatRace, c1.sex AS issuedCatSex, c1.age_in_month AS issuedCatAgeInMonth, c1.description AS issuedCatDescription, c1.image_urls AS issuedCatImageUrls, c1.has_matched AS issuedCatStatus, c1.created_at AS issuedCatCreatedAt, c2.id AS receiverCatId, c2.name AS receiverCatName, c2.race AS receiverCatRace, c2.sex AS receiverCatSex, c2.age_in_month AS receiverCatAgeInMonth, c2.description AS receiverCatDescription, c2.image_urls AS receiverCatImageUrls, c2.has_matched AS receiverCatStatus, c2.created_at AS receiverCatCreatedAt, mc.message, mc.created_at FROM match_cats mc INNER JOIN users u1 ON mc.issuedId = u1.id INNER JOIN users u2 ON mc.receiverId = u2.id INNER JOIN cats c1 ON mc.issuedCatId = c1.id INNER JOIN cats c2 ON mc.receiverCatId = c2.id WHERE mc.deleted_at IS NULL ORDER BY mc.created_at DESC")
 	if err != nil {
 		log.Println("Error retrieving match requests:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve match requests"})
@@ -196,12 +206,36 @@ func GetMatchRequests(c *gin.Context) {
 		}
 
 		matchRequests = append(matchRequests, gin.H{
-			"id":             matchRequest.ID,
-			"issuedBy":       matchRequest.IssuedBy,
-			"matchCatDetail": matchRequest.MatchCatDetail,
-			"userCatDetail":  matchRequest.UserCatDetail,
-			"message":        matchRequest.Message,
-			"createdAt":      matchRequest.CreatedAt.Format(time.DateTime),
+			"id": strconv.Itoa(matchRequest.ID), // Convert ID to string
+			"issuedBy": gin.H{
+				"name":      matchRequest.IssuedBy.Name,
+				"email":     matchRequest.IssuedBy.Email,
+				"createdAt": matchRequest.IssuedBy.CreatedAt,
+			},
+			"matchCatDetail": gin.H{
+				"id":          strconv.Itoa(matchRequest.MatchCatDetail.ID), // Convert ID to string
+				"name":        matchRequest.MatchCatDetail.Name,
+				"race":        matchRequest.MatchCatDetail.Race,
+				"sex":         matchRequest.MatchCatDetail.Sex,
+				"ageInMonth":  matchRequest.MatchCatDetail.AgeInMonth,
+				"description": matchRequest.MatchCatDetail.Description,
+				"imageUrls":   matchRequest.MatchCatDetail.ImageURLs,
+				"status":      matchRequest.MatchCatDetail.Status,
+				"createdAt":   matchRequest.MatchCatDetail.CreatedAt,
+			},
+			"userCatDetail": gin.H{
+				"id":          strconv.Itoa(matchRequest.UserCatDetail.ID), // Convert ID to string
+				"name":        matchRequest.UserCatDetail.Name,
+				"race":        matchRequest.UserCatDetail.Race,
+				"sex":         matchRequest.UserCatDetail.Sex,
+				"ageInMonth":  matchRequest.UserCatDetail.AgeInMonth,
+				"description": matchRequest.UserCatDetail.Description,
+				"imageUrls":   matchRequest.UserCatDetail.ImageURLs,
+				"status":      matchRequest.UserCatDetail.Status,
+				"createdAt":   matchRequest.UserCatDetail.CreatedAt,
+			},
+			"message":   matchRequest.Message,
+			"createdAt": matchRequest.CreatedAt.Format(time.DateTime),
 		})
 	}
 
