@@ -1,6 +1,6 @@
 CREATE TABLE cats (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL,
+    user_id INTEGER,
     name VARCHAR(100) NOT NULL,
     race VARCHAR(50) CHECK (race IN ('Persian', 'Maine Coon', 'Siamese', 'Ragdoll', 'Bengal', 'Sphynx', 'British Shorthair', 'Abyssinian', 'Scottish Fold', 'Birman')) NOT NULL,
     sex VARCHAR(10) CHECK (sex IN ('male', 'female')) NOT NULL,

@@ -70,7 +70,7 @@ func CreateMatch(c *gin.Context) {
 
 	// Cek apakah kedua kucing sudah dipasangkan sebelumnya
 	var isMatched bool
-	err = DB.QueryRow("SELECT status FROM match_cats WHERE (issuedCatId = $1 AND receiverCatId = $2) OR (issuedCatId = $2 AND receiverCatId = $1)", matchRequest.UserCatID, matchRequest.MatchCatID).Scan(&isMatched)
+	err = DB.QueryRow("SELECT status FROM match_cats WHERE (issuedCatId = $1 AND receiverCatId = $2) OR (issuedCatId = $2 AND receiverCatId = $1) AND deleted_at IS NULL", matchRequest.UserCatID, matchRequest.MatchCatID).Scan(&isMatched)
 	if err != nil && err != sql.ErrNoRows {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check matching status"})
 		return
@@ -83,12 +83,12 @@ func CreateMatch(c *gin.Context) {
 	// Cek apakah kedua kucing milik pemilik yang sama
 	var userCatOwnerID int
 	var matchCatOwnerID int
-	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.UserCatID).Scan(&userCatOwnerID)
+	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1 AND deleted_at IS NULL", matchRequest.UserCatID).Scan(&userCatOwnerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User cat not found"})
 		return
 	}
-	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1", matchRequest.MatchCatID).Scan(&matchCatOwnerID)
+	err = DB.QueryRow("SELECT user_id FROM cats WHERE id = $1 AND deleted_at IS NULL", matchRequest.MatchCatID).Scan(&matchCatOwnerID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Match cat not found"})
 		return
@@ -107,6 +107,7 @@ func CreateMatch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Match request sent successfully"})
+	defer DB.Close()
 }
 
 func GetMatchRequests(c *gin.Context) {
@@ -146,7 +147,7 @@ func GetMatchRequests(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve match requests"})
 		return
 	}
-	defer rows.Close()
+	// defer rows.Close()
 
 	// Create slice to hold retrieved match requests
 	var matchRequests []gin.H
@@ -212,6 +213,7 @@ func GetMatchRequests(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "success", "data": matchRequests})
+	defer DB.Close()
 }
 
 func ApproveMatch(c *gin.Context) {
@@ -279,6 +281,7 @@ func ApproveMatch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Match request approved successfully"})
+	defer DB.Close()
 }
 
 func RejectMatch(c *gin.Context) {
@@ -334,6 +337,7 @@ func RejectMatch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Match request rejected successfully"})
+	defer DB.Close()
 }
 
 func DeleteMatch(c *gin.Context) {
@@ -388,4 +392,5 @@ func DeleteMatch(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Match request deleted successfully"})
+	defer DB.Close()
 }

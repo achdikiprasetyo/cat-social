@@ -3,8 +3,11 @@ package controllers
 import (
 	"CatsSocial/configurations"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -22,8 +25,8 @@ func CreateCat(c *gin.Context) {
 	// Validasi input
 	var cat struct {
 		Name        string   `json:"name" binding:"required,min=1,max=30"`
-		Race        string   `json:"race" binding:"required,oneof=Persian MaineCoon Siamese Ragdoll Bengal Sphynx BritishShorthair Abyssinian ScottishFold Birman"`
-		Sex         string   `json:"sex" binding:"required,oneof=male female"`
+		Race        string   `json:"race" binding:"required,oneof=Persian 'Maine Coon' Siamese Ragdoll Bengal Sphynx 'British Shorthair' 'Abyssinian' 'Scottish Fold' Birman"`
+		Sex         string   `json:"sex" binding:"required,oneof='male' 'female'"`
 		AgeInMonth  int      `json:"ageInMonth" binding:"required,min=1,max=120082"`
 		Description string   `json:"description" binding:"required,min=1,max=200"`
 		ImageURLs   []string `json:"imageUrls" binding:"required,min=1,dive,url"`
@@ -54,12 +57,13 @@ func CreateCat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add cat"})
 		return
 	}
+	defer DB.Close()
 
 	// Construct the JSON response
 	response := gin.H{
-		"message": "Success",
+		"message": "success",
 		"data": gin.H{
-			"id":        catID,
+			"id":        strconv.Itoa(catID),
 			"createdAt": createdAt.Format(time.RFC3339),
 		},
 	}
@@ -78,17 +82,146 @@ func GetCats(c *gin.Context) {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Retrieve cats from the database
-	rows, err := DB.Query("SELECT id, name, race, sex, age_in_month, description, image_urls, has_matched, created_at FROM cats ORDER BY created_at DESC")
+	// Get query parameters
+	id := c.Query("id")
+	race := c.Query("race")
+	sex := c.Query("sex")
+	hasMatchedStr := c.Query("hasMatched")
+	ageInMonth := c.Query("ageInMonth")
+	ownedStr := c.Query("owned")
+	search := c.Query("search")
+	limit := c.DefaultQuery("limit", "5")
+	offset := c.DefaultQuery("offset", "0")
+	var deletedAt string
+
+	// Construct SQL query based on query parameters
+	query := "SELECT id, name, race, sex, age_in_month, description, image_urls, has_matched, created_at FROM cats WHERE 1=1"
+	args := []interface{}{}
+
+	if id != "" {
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid id"})
+			return
+		}
+		query += " AND id = " + strconv.Itoa(idInt)
+		args = append(args)
+	}
+
+	if race != "" {
+		// Capitalize the first letter and lowercase the rest of the string
+		race = strings.ToLower(race)
+		race = strings.Title(race)
+
+		// Validate race against allowed values
+		allowedRaces := []string{"Persian", "Maine Coon", "Siamese", "Ragdoll", "Bengal", "Sphynx", "British Shorthair", "Abyssinian", "Scottish Fold", "Birman"}
+		var validRace bool
+		for _, r := range allowedRaces {
+			if race == r {
+				validRace = true
+				break
+			}
+		}
+		if !validRace {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid race"})
+			return
+		}
+		// Append WHERE clause for race if it's valid
+		query += " AND race = '" + race + "'"
+		args = append(args)
+	}
+
+	if sex != "" {
+		// Validate sex against allowed values
+		if sex != "male" && sex != "female" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid sex"})
+			return
+		}
+		// Append WHERE clause for sex if it's valid
+		query += " AND sex = '" + sex + "'"
+		args = append(args)
+	}
+
+	if hasMatchedStr != "" {
+		// Parse hasMatched as boolean
+		// hasMatched, err := strconv.ParseBool(hasMatchedStr)
+		// if err != nil {
+		// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid hasMatched value"})
+		// 	return
+		// }
+		// Append WHERE clause for hasMatched
+		query += " AND has_matched = " + hasMatchedStr
+		args = append(args)
+	}
+
+	if ageInMonth != "" {
+		// Parse ageInMonth filter
+		var ageCondition string
+		if strings.HasPrefix(ageInMonth, ">") {
+			ageCondition = ">"
+		} else if strings.HasPrefix(ageInMonth, "<") {
+			ageCondition = "<"
+		} else if strings.HasPrefix(ageInMonth, "") {
+			ageCondition = "="
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ageInMonth filter"})
+			return
+		}
+
+		ageValue, err := strconv.Atoi(strings.TrimPrefix(ageInMonth, ageCondition))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ageInMonth value"})
+			return
+		}
+
+		// Append WHERE clause for ageInMonth
+		query += " AND age_in_month " + ageCondition + " " + strconv.Itoa(ageValue)
+		args = append(args)
+	}
+
+	if ownedStr != "" {
+		// Parse owned as boolean
+		owned, err := strconv.ParseBool(ownedStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid owned value"})
+			return
+		}
+
+		// If owned is true, filter cats with a non-null user_id
+		if owned {
+			query += " AND deleted_at IS NULL"
+		} else {
+			// If owned is false, filter cats with a null user_id
+			query += " AND deleted_at IS NOT NULL"
+		}
+	} else {
+		deletedAt = " AND deleted_at IS NULL"
+		query += deletedAt
+		args = append(args)
+	}
+
+	if search != "" {
+		// Append WHERE clause for search
+		query += " AND name LIKE '%" + search + "%'"
+		args = append(args)
+	}
+
+	if limit != "" && offset != "" {
+		query += " ORDER BY created_at DESC LIMIT " + limit + " OFFSET " + offset
+		args = append(args)
+	}
+	fmt.Println(query)
+
+	// Retrieve cats from the database, excluding soft-deleted ones
+	rows, err := DB.Query(query, args...)
 	if err != nil {
 		log.Println("Error retrieving cats:", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
 		return
 	}
-	defer rows.Close()
 
 	// Create slice to hold retrieved cats
-	var cats []gin.H
+	cats := []gin.H{}
 
 	// Iterate over rows and append to cats slice
 	for rows.Next() {
@@ -111,7 +244,7 @@ func GetCats(c *gin.Context) {
 		}
 
 		cats = append(cats, gin.H{
-			"id":          cat.ID,
+			"id":          strconv.Itoa(cat.ID),
 			"name":        cat.Name,
 			"race":        cat.Race,
 			"sex":         cat.Sex,
@@ -129,7 +262,7 @@ func GetCats(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve cats"})
 		return
 	}
-
+	defer DB.Close()
 	// Construct the response JSON
 	response := gin.H{
 		"message": "success",
@@ -153,13 +286,23 @@ func UpdateCat(c *gin.Context) {
 	// Get cat ID from path params
 	catID := c.Param("id")
 	var catUserId int
-	err = DB.QueryRow("SELECT user_id from cats where id=$1", catID).Scan(&catUserId)
+	var catDeletedAt sql.NullTime
+	var catHasMatched bool
+	err = DB.QueryRow("SELECT user_id, deleted_at, has_matched from cats where id=$1", catID).Scan(&catUserId, &catDeletedAt, &catHasMatched)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	if catUserId != userID {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Not Allowed to Update"})
+		return
+	}
+	if catDeletedAt.Valid {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot update a soft deleted cat"})
+		return
+	}
+	if catHasMatched {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot Update Cat has matched"})
 		return
 	}
 
@@ -185,6 +328,7 @@ func UpdateCat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update cat"})
 		return
 	}
+	defer DB.Close()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cat updated successfully"})
 }
@@ -218,12 +362,13 @@ func DeleteCat(c *gin.Context) {
 		return
 	}
 
-	// Delete cat from the database
-	_, err = DB.Exec("DELETE FROM cats WHERE id=$1", catID)
+	// Soft delete: set deleted_at field
+	_, err = DB.Exec("UPDATE cats SET deleted_at = NOW() WHERE id = $1", catID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete cat"})
 		return
 	}
+	defer DB.Close()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Cat deleted successfully"})
 }

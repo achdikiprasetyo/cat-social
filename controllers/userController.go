@@ -77,6 +77,7 @@ func Register(c *gin.Context) {
 			"accessToken": token,
 		},
 	})
+	defer DB.Close()
 }
 
 // Login logs in a user
@@ -127,4 +128,5 @@ func Login(c *gin.Context) {
 			"accessToken": token,
 		},
 	})
+	defer DB.Close()
 }
