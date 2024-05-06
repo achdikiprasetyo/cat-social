@@ -36,6 +36,13 @@ Kami sangat menghargai kontribusi dari para pengembang. Silakan ikuti langkah-la
 ## Catatan Penting
 1. Build APP `GOARCH=amd64 GOOS=linux go build -o main_bagasseptyonoo`
 2. Run K6 `$env:BASE_URL = "http://localhost:8080"` >  `make run`
-3. Mode Debug `$env:DEBUG_ALL = "true"` > `make run` 
+3. Mode Debug `$env:DEBUG_ALL = "true"` > `make run`
+4. SCP `scp -i w1key main_namauserlead ubuntu@128.x.x.x`
+   Tutor :
+   1. Download ap-southeast-1-bundle.pem dan w1key ke folder project golang
+   2. Compile golangnya sesuai format main_namauserlead
 
+# Migration
+1. Execute `migrate -database "postgres://postgres:diki@localhost:5432/cat?sslmode=disable" -path db/migrations up`
+2. Rollback `migrate -database "postgres://postgres:diki@localhost:5432/cat?sslmode=disable" -path db/migrations down`
 
