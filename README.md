@@ -43,6 +43,6 @@ Kami sangat menghargai kontribusi dari para pengembang. Silakan ikuti langkah-la
    2. Compile golangnya sesuai format main_namauserlead
 
 # Migration
-1. Execute `migrate -database "postgres://postgres:diki@localhost:5432/cat?sslmode=disable" -path db/migrations up`
-2. Rollback `migrate -database "postgres://postgres:diki@localhost:5432/cat?sslmode=disable" -path db/migrations down`
+1. Execute `migrate -database "postgres://postgres:nama@localhost:5432/cat?sslmode=disable" -path db/migrations up`
+2. Rollback `migrate -database "postgres://postgres:nama@localhost:5432/cat?sslmode=disable" -path db/migrations down`
 
