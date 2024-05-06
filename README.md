@@ -33,6 +33,9 @@ Kami sangat menghargai kontribusi dari para pengembang. Silakan ikuti langkah-la
 5. *Push* ke *branch* yang dibuat sebelumnya (`git push origin fitur-anda`).
 6. Buat permintaan tarik (*pull request*).
 
-## Lisensi
+## Catatan Penting
+Build APP 'GOARCH=amd64 GOOS=linux go build -o main_bagasseptyonoo'
+Run K6 `$env:BASE_URL = "http://localhost:8080"` >  `make run`
+Mode Debug `$env:DEBUG_ALL = "true"` > `make run` 
 
-Proyek ini dilisensikan di bawah Lisensi [MIT](link-license).
+
