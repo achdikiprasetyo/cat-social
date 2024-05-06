@@ -34,7 +34,7 @@ Kami sangat menghargai kontribusi dari para pengembang. Silakan ikuti langkah-la
 6. Buat permintaan tarik (*pull request*).
 
 ## Catatan Penting
-1. Build APP 'GOARCH=amd64 GOOS=linux go build -o main_bagasseptyonoo'
+1. Build APP `GOARCH=amd64 GOOS=linux go build -o main_bagasseptyonoo`
 2. Run K6 `$env:BASE_URL = "http://localhost:8080"` >  `make run`
 3. Mode Debug `$env:DEBUG_ALL = "true"` > `make run` 
 
