@@ -21,7 +21,7 @@ func DBConnection() (*sql.DB, error) {
 	dbName := os.Getenv("DB_NAME")
 	params := os.Getenv("DB_PARAMS")
 	// Buat string koneksi database
-	dbConnectionString := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?%s", dbUser, dbPassword, dbHost, dbPort, dbName, params)
+	dbConnectionString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?%s", dbUser, dbPassword, dbHost, dbPort, dbName, params)
 
 	// Buat koneksi ke database
 	db, err := sql.Open("postgres", dbConnectionString)
